@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Voice Chat (ChatGPT-style)</title>
+  <style>
+    :root{
+      --bg:#0b0f19;
+      --panel:#111827;
+      --panel-2:#0f172a;
+      --border:#233046;
+      --text:#e5e7eb;
+      --muted:#9ca3af;
+      --accent:#10a37f;
+      --danger:#ef4444;
+      --shadow: 0 12px 40px rgba(0,0,0,.45);
+      --radius: 18px;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family:var(--font);
+      background: radial-gradient(1200px 600px at 50% -10%, rgba(16,163,127,.18), transparent 55%),
+                  radial-gradient(900px 500px at 10% 20%, rgba(59,130,246,.12), transparent 50%),
+                  var(--bg);
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      align-items:flex-start;
+    }
+
+    .wrap{
+      width:min(860px, 92vw);
+      padding: 44px 0 60px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      color:var(--muted);
+      font-size:14px;
+      margin: 0 0 18px;
+      user-select:none;
+    }
+    .dot{
+      width:10px;height:10px;border-radius:999px;
+      background:var(--accent);
+      box-shadow: 0 0 0 4px rgba(16,163,127,.18);
+    }
+
+    .composer{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px 14px 12px;
+      position: sticky;
+      top: 18px;
+      backdrop-filter: blur(10px);
+    }
+
+    .row{
+      display:flex;
+      align-items:flex-end;
+      gap:10px;
+    }
+
+    textarea{
+      flex:1;
+      resize:none;
+      min-height: 52px;
+      max-height: 160px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.06);
+      background: var(--panel);
+      color: var(--text);
+      padding: 14px 14px;
+      font-size: 15px;
+      line-height: 1.35;
+      outline: none;
+    }
+    textarea::placeholder{color:rgba(156,163,175,.7)}
+    textarea:focus{
+      border-color: rgba(16,163,127,.55);
+      box-shadow: 0 0 0 4px rgba(16,163,127,.15);
+    }
+
+    .btn{
+      border:1px solid rgba(255,255,255,.08);
+      background: var(--panel-2);
+      color: var(--text);
+      height: 44px;
+      min-width: 44px;
+      border-radius: 12px;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition: transform .06s ease, background .2s ease, border-color .2s ease;
+      user-select:none;
+    }
+    .btn:hover{background:#15213a;border-color:rgba(255,255,255,.14)}
+    .btn:active{transform: translateY(1px)}
+    .btn[disabled]{opacity:.45;cursor:not-allowed}
+
+    .btn-accent{
+      background: rgba(16,163,127,.18);
+      border-color: rgba(16,163,127,.38);
+    }
+    .btn-accent:hover{background: rgba(16,163,127,.24)}
+
+    .btn-danger{
+      background: rgba(239,68,68,.16);
+      border-color: rgba(239,68,68,.40);
+    }
+    .btn-danger:hover{background: rgba(239,68,68,.22)}
+
+    .hint{
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      color: var(--muted);
+      font-size: 12px;
+      padding: 10px 4px 0;
+    }
+    .status{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      white-space:nowrap;
+    }
+    .pill{
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+    }
+    .pill.live{
+      border-color: rgba(16,163,127,.35);
+      background: rgba(16,163,127,.10);
+      color: rgba(209,250,229,.92);
+    }
+
+    .messages{
+      margin-top: 22px;
+      display:flex;
+      flex-direction:column;
+      gap: 12px;
+    }
+    .msg{
+      width: fit-content;
+      max-width: 100%;
+      background: rgba(255,255,255,.03);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 16px;
+      padding: 12px 14px;
+      box-shadow: 0 10px 24px rgba(0,0,0,.18);
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+    .msg.you{
+      margin-left:auto;
+      background: rgba(16,163,127,.12);
+      border-color: rgba(16,163,127,.30);
+    }
+
+    /* Simple icon style */
+    .icon{
+      width:18px;height:18px;display:block;
+      fill: currentColor;
+    }
+
+    @media (max-width:520px){
+      .wrap{padding: 30px 0 50px;}
+      .hint{flex-direction:column; align-items:flex-start}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <span class="dot"></span>
+      <span>Voice Composer</span>
+      <span style="opacity:.7;">·</span>
+      <span style="opacity:.7;">ChatGPT-style one-pager</span>
+    </div>
+
+    <div class="composer" aria-label="Composer">
+      <div class="row">
+        <textarea id="input" placeholder="Type or use the mic…" aria-label="Message input"></textarea>
+
+        <!-- Mic / Stop -->
+        <button id="micBtn" class="btn" title="Start dictation" aria-label="Start dictation">
+          <!-- mic icon -->
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.92V20h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-2.08A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0z"/>
+          </svg>
+        </button>
+
+        <!-- Send -->
+        <button id="sendBtn" class="btn btn-accent" title="Send" aria-label="Send message">
+          <!-- send icon -->
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M2 21l21-9L2 3v7l15 2-15 2v7z"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="hint">
+        <div class="status">
+          <span id="speechPill" class="pill">Dictation: Off</span>
+          <span id="supportText" class="pill" style="display:none;"></span>
+        </div>
+        <div>
+          <span style="opacity:.9;">Tip:</span> You can hit <span class="pill">Enter</span> to send, <span class="pill">Shift+Enter</span> for newline.
+        </div>
+      </div>
+    </div>
+
+    <div id="messages" class="messages" aria-label="Messages"></div>
+  </div>
+
+  <script>
+    // --- Elements ---
+    const input = document.getElementById('input');
+    const micBtn = document.getElementById('micBtn');
+    const sendBtn = document.getElementById('sendBtn');
+    const messagesEl = document.getElementById('messages');
+    const speechPill = document.getElementById('speechPill');
+    const supportText = document.getElementById('supportText');
+
+    // --- Speech Recognition setup (Web Speech API) ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null;
+    let isListening = false;
+
+    // Tracks whether the input should be cleared on next user edit after sending.
+    let clearOnNextEdit = false;
+
+    // Auto-resize textarea
+    function autoResize() {
+      input.style.height = 'auto';
+      input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+    }
+
+    function setMicUI(listening) {
+      isListening = listening;
+
+      // Swap mic icon to stop icon & colors
+      micBtn.classList.toggle('btn-danger', listening);
+      micBtn.title = listening ? 'Stop dictation' : 'Start dictation';
+      micBtn.setAttribute('aria-label', listening ? 'Stop dictation' : 'Start dictation');
+
+      // Replace SVG path (mic vs stop)
+      micBtn.innerHTML = listening
+        ? `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+             <path d="M6 6h12v12H6z"/>
+           </svg>`
+        : `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+             <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.92V20h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-2.08A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0z"/>
+           </svg>`;
+
+      speechPill.textContent = listening ? 'Dictation: On' : 'Dictation: Off';
+      speechPill.classList.toggle('live', listening);
+    }
+
+    function initRecognitionIfSupported() {
+      if (!SpeechRecognition) {
+        supportText.style.display = 'inline-flex';
+        supportText.textContent = 'Speech API not supported in this browser';
+        micBtn.disabled = true;
+        return false;
+      }
+
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = true;
+
+      let finalTranscript = '';   // stable text for this session
+      let interimTranscript = ''; // live partial
+
+      recognition.onstart = () => {
+        setMicUI(true);
+      };
+
+      recognition.onerror = (e) => {
+        // Common: "not-allowed" if mic permission denied
+        setMicUI(false);
+        console.warn('Speech recognition error:', e.error);
+      };
+
+      recognition.onend = () => {
+        // onend fires when stopped or when the browser auto-stops.
+        setMicUI(false);
+        // Reset interim, but keep finalTranscript cached for correct concatenation while session ends
+        interimTranscript = '';
+      };
+
+      recognition.onresult = (event) => {
+        interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const txt = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            finalTranscript += txt;
+          } else {
+            interimTranscript += txt;
+          }
+        }
+
+        // If user just sent and we want the next dictation to start fresh,
+        // input was already cleared on send; so just append normally.
+        // If they haven't sent, we append from wherever it already is.
+        const base = input.value;
+        // We want to avoid duplicating: treat base as the user-visible truth and rebuild using it.
+        // Approach: if user is typing while dictating, we just append the new speech at the end.
+        // We'll maintain "dictationStartValue" for each start to prevent drift.
+        // Simpler: always keep a "dictationAnchor" captured on start.
+      };
+
+      // We'll implement safer anchor-based concatenation:
+      let dictationAnchor = '';
+
+      function startDictation() {
+        if (!recognition) return;
+
+        // If the user has just sent, and they are starting a new thought, input is already empty.
+        // If they haven't sent, continue from whatever is in the box.
+        dictationAnchor = input.value;
+        finalTranscript = '';
+        interimTranscript = '';
+
+        try { recognition.start(); } catch (e) { /* start can throw if called twice quickly */ }
+
+        // Update the textarea continuously using a timer, because onresult alone
+        // doesn't rebuild with anchor. We'll rebuild inside onresult below instead.
+      }
+
+      function stopDictation() {
+        if (!recognition) return;
+        try { recognition.stop(); } catch (e) {}
+      }
+
+      recognition.onresult = (event) => {
+        interimTranscript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const txt = event.results[i][0].transcript;
+          if (event.results[i].isFinal) finalTranscript += txt;
+          else interimTranscript += txt;
+        }
+
+        // If user sent and we want next edit to clear, clearOnNextEdit is handled elsewhere.
+        // Dictation should always write into whatever is currently in the input:
+        // - If they haven't sent: dictationAnchor includes existing text and we append new speech.
+        // - If they sent mid-dictation: send() clears input; dictationAnchor should be updated to ''.
+        input.value = dictationAnchor + finalTranscript + interimTranscript;
+        autoResize();
+      };
+
+      // When user starts typing after a send, clear once.
+      input.addEventListener('input', () => {
+        if (clearOnNextEdit) {
+          clearOnNextEdit = false;
+          // If the input event is from typing, the character is already in the box.
+          // So we need to keep that typed character. We'll do this by resetting to the latest value
+          // minus whatever existed (which was cleared) — easiest: store last typed via event is hard.
+          // Instead: when we set clearOnNextEdit, we also clear immediately on send.
+          // So here we just do nothing.
+        }
+        autoResize();
+      });
+
+      // Expose controls
+      micBtn.addEventListener('click', () => {
+        if (!isListening) {
+          // If user has just sent, input is empty already.
+          startDictation();
+        } else {
+          stopDictation();
+        }
+      });
+
+      // Important: if we clear input while dictation is running (after sending),
+      // update anchor so dictation continues into a fresh box.
+      function resetDictationAnchorToCurrentInput() {
+        dictationAnchor = input.value;
+        finalTranscript = '';
+        interimTranscript = '';
+      }
+
+      return { startDictation, stopDictation, resetDictationAnchorToCurrentInput };
+    }
+
+    const speechControls = initRecognitionIfSupported();
+
+    // --- Send message ---
+    function sendMessage() {
+      const text = input.value.trim();
+      if (!text) return;
+
+      const msg = document.createElement('div');
+      msg.className = 'msg you';
+      msg.textContent = text;
+      messagesEl.appendChild(msg);
+
+      // Clear the box after sending
+      input.value = '';
+      autoResize();
+
+      // After send, next typing/dictation should start from empty (already empty now).
+      clearOnNextEdit = false;
+
+      // If dictation is currently running and user hits Send, we want dictation to keep going
+      // but now writing into an empty box for the next message.
+      if (isListening && speechControls && speechControls.resetDictationAnchorToCurrentInput) {
+        speechControls.resetDictationAnchorToCurrentInput();
+      }
+
+      // Scroll newest message into view
+      msg.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      input.focus();
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+
+    // Enter to send, Shift+Enter for newline
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    // Initial sizing
+    autoResize();
+  </script>
+</body>
+</html>
